@@ -24,15 +24,286 @@ function MMOServer() {
     var sockets = {}; // Associative array for sockets, indexed via player ID
     var players = {}; // Associative array for players, indexed via socket ID
     
-    // private variables for Area-of-Interest management
+    // private constants for Area-of-Interest management
     var AOI_WIDTH_SHIP = 100;   // The AOI width of the ships (AOI will be a cross)
     var AOI_LENGTH_SHIP = 500;  // The AOI length of the ships (AOI will not be an infinite cross)
     var AOI_RADIUS_ROCKET = 2;  // The AOI radius of a rocket to check for collision
-    var DEFAULT_CELL_WIDTH = AOI_WIDTH_SHIP/2;
-    var cells = []; // The cells for Interest Management
+    var CELL_WIDTH = AOI_WIDTH_SHIP/2;
+    var CELL_HEIGHT = CELL_WIDTH;
     
-     
+    // private variables for Area-of-Interest management
+    var cells = []; // The cells (2d array) for Interest Management
+    var shipsCurrentCellRC = {}; // Associative array of the cell (r, c) which the ship is currently subscribed to, indexed by the playerId
+    var rocketsCurrentCellRC = {}; // Associative array of the cell (r, c) which the rocket is currently subscribed to, indexed by the rocketId
+    
+    // private methods for Area-of-Interest management
+    
+    /*
+     * Private method: checkCellsInitialized(callerName)
+     *
+     * Error checking method that checks if cells are initialized based on empty or not check.
+     * Prints an error message including the callerName and returns false if not.
+     */
+    var checkCellsInitialized = function(callerName) {
+      if (typeof cells === 'undefined') {
+        console.log("Error in " + callerName + " - checkCellsInitialized(): cells is undefined");
+        return false;
+      }
+      if (cells.length <= 0 || cells[0].length < 0) {
+        console.log("Error in " + callerName + " - checkCellsInitialized(): cells is empty");
+        return false;
+      }
+      return true;
+    }
+    
+    /*
+     * Private method: checkGoodCell(r, c, callerName)
+     *
+     * Error checking method that checks if the specified (r, c) cell indices 
+     * are valid or not based on whether they exist in the cells array.
+     * Prints an error message including the callerName and returns false if not.
+     */
+    var checkGoodCell = function(r, c, callerName) {
+      if ( !checkCellsInitialized(callerName + " - checkGoodCell()")) {
+        return false;
+      }
+      if (typeof r === 'undefined') {
+        console.log("Error in " + callerName + " - checkGoodCell(): r is undefined");
+        return false;
+      } else if (typeof c === 'undefined') {
+        console.log("Error in " + callerName + " - checkGoodCell(): c is undefined");
+        return false;
+      }
+      
+      // Check if it is an existing cell
+      if (r < 0 || r >= cells.length || c < 0 || c >= cells[0].length) {
+        console.log("Error in " + callerName + " - checkGoodCell(): cell (" + 
+                      r + "," + c + ") is not a valid cell - maximum r = " + 
+                      (cells.length-1) + ", c = " + (cells[0].length-1));
+        return false;
+      }
+      return true;
+    }
+    
+    /*
+     * Private method: locateCellRC(x, y)
+     *
+     * Finds the cell that contains the point (x, y) and
+     * returns the coordinates {r, c}
+     */
+    var locateCellRC = function(x, y) {      
+      // Calculate the (r, c) coordinate for the cell
+      var r = Math.floor(y/CELL_HEIGHT);
+      var c = Math.floor(x/CELL_WIDTH);
+      
+      if ( !checkGoodCell(r, c, "locateCellRC()")) {
+        return;
+      }
+      
+      return {r: r, c: c};
+    }
 
+    /*
+     * Private method: getCell(r, c)
+     *
+     * Returns a reference to the cell specified by indices (r, c)
+     */
+    var getCell = function(r, c) {
+      if ( !checkGoodCell(r, c, "getCell()")) {
+        return;
+      }
+      
+      return cells[r][c];
+    }
+    
+    /*
+     * Private method: insertShipIntoCell(shipId, r, c)
+     *
+     * Inserts (subscribes) the ship into the cell specified by indices (r, c)
+     */
+    var insertShipIntoCell = function(shipId, r, c) {      
+      var cell = getCell(r, c);
+      cell.subscribeShip(shipId);
+      shipsCurrentCellRC[shipId] = {r: r, c: c};
+      console.log("Ship inserted into cell (" + r + "," + c + ")");
+      return cell;
+    }
+    
+    /*
+     * Private method: insertRocketIntoCell(shipId, r, c)
+     *
+     * Inserts (subscribes) the rocket into the cell specified by indices (r, c)
+     */
+    var insertRocketIntoCell = function(rocketId, r, c) {      
+      var cell = getCell(r, c);
+      cell.subscribeRocket(rocketId);
+      rocketsCurrentCellRC[rocketId] = {r: r, c: c};
+      console.log("Rocket inserted into cell (" + r + "," + c + ")");
+      return cell;
+    }
+    
+    /*
+     * Private method: removeShipFromCell(shipId)
+     *
+     * Removes (unsubscribes) the ship from its current cell
+     */
+    var removeShipFromCell = function(shipId) {
+      var cell = getShipCell(shipId);
+      cell.unsubscribeShip(shipId);
+      delete shipsCurrentCellRC[shipId];
+      var r = Math.floor(cell.y/CELL_HEIGHT);
+      var c = Math.floor(cell.x/CELL_WIDTH);
+      console.log("Ship removed from cell (" + r + "," + c + ")");
+    }
+    
+    /*
+     * Private method: removeRocketFromCell(rocketId)
+     *
+     * Removes (unsubscribes) the rocket from its current cell
+     */
+    var removeRocketFromCell = function(rocketId) {
+      var cell = getRocketCell(rocketId);
+      cell.unsubscribeRocket(rocketId);
+      delete rocketsCurrentCellRC[rocketId];
+      var r = Math.floor(cell.y/CELL_HEIGHT);
+      var c = Math.floor(cell.x/CELL_WIDTH);
+      console.log("Rocket removed from cell (" + r + "," + c + ")");
+    }
+    
+    /*
+     * Private method: locateCellRCAndInsertShip(shipId, x, y)
+     *
+     * Convenience method that combines locateCellRC(x, y) and insertShipIntoCell(shipId, r, c) into one.
+     */
+    var findCellAndInsertShip = function(shipId, x, y) {
+      var cellRC = locateCellRC(x, y);
+      return insertShipIntoCell(shipId, cellRC.r, cellRC.c);
+    }
+    
+    /*
+     * Private method: locateCellRCAndInsertRocket(rocketId, x, y)
+     *
+     * Convenience method that combines locateCellRC(x, y) and insertRocketIntoCell(rocketId, r, c) into one.
+     */
+    var findCellAndInsertRocket = function(rocketId, x, y) {
+      var cellRC = locateCellRC(x, y);
+      return insertRocketIntoCell(rocketId, cellRC.r, cellRC.c);
+    }
+    
+    /*
+     * Private method: getShipCellRC(shipId)
+     *
+     * Returns the ship's cell as of the last update
+     */
+    var getShipCellRC = function(shipId) {
+      if (typeof shipId === 'undefined') {
+        console.log("Error in getShipCellRC(): shipId is undefined");
+        return;
+      }
+      
+      return shipsCurrentCellRC[shipId];
+    }
+    
+    /*
+     * Private method: getShipCell(shipId)
+     *
+     * Returns the ship's cell as of the last update
+     */
+    var getShipCell = function(shipId) {
+      if (typeof shipId === 'undefined') {
+        console.log("Error in getShipCell(): shipId is undefined");
+        return;
+      }
+      
+      var shipCellRC = getShipCellRC(shipId);
+      var shipCell = getCell(shipCellRC.r, shipCellRC.c);
+      return shipCell;
+    }
+    
+    /*
+     * Private method: getRocketCellRC(rocketId)
+     *
+     * Returns the rocket's cell as of the last update
+     */
+    var getRocketCellRC = function(rocketId) {
+      if (typeof rocketId === 'undefined') {
+        console.log("Error in getRocketCellRC(): rocketId is undefined");
+        return;
+      }
+      
+      return rocketsCurrentCellRC[rocketId];
+    }
+    
+    /*
+     * Private method: getRocketCell(rocketId)
+     *
+     * Returns the rocket's cell as of the last update
+     */
+    var getRocketCell = function(rocketId) {
+      if (typeof rocketId === 'undefined') {
+        console.log("Error in getRocketCell(): rocketId is undefined");
+        return;
+      }
+      
+      var rocketCellRC = getRocketCellRC(rocketId);
+      var rocketCell = getCell(rocketCellRC.r, rocketCellRC.c);
+      return rocketCell;
+    }
+    
+    /*
+     * Private method: checkShipChangedCell(shipId, x, y)
+     *
+     * Checks if a ship has changed to a different cell.
+     */
+    var checkShipChangedCell = function(shipId, x, y) {
+      var cellRC = locateCellRC(x, y);
+      var newCell = getCell(cellRC.r, cellRC.c);
+      var prevCell = getShipCell(shipId);
+      if (typeof prevCell === 'undefined') {
+        return true;
+      }
+      return (newCell.x != prevCell.x || newCell.y != prevCell.y);
+    }
+    
+    /*
+     * Private method: checkRocketChangedCell(shipId, x, y)
+     *
+     * Checks if a rocket has changed to a different cell.
+     */
+    var checkRocketChangedCell = function(rocketId, x, y) {
+      var cellRC = locateCellRC(x, y);
+      var newCell = getCell(cellRC.r, cellRC.c);
+      var prevCell = getRocketCell(rocketId);
+      if (typeof prevCell === 'undefined') {
+        return true;
+      }
+      return (newCell.x != prevCell.x || newCell.y != prevCell.y);
+    }
+    
+    /*
+     * Private method: updateShipCell(shipId, x, y)
+     *
+     * Updates a ship's cell if the given (x, y) moves it into a cell different from its previous one.
+     */
+    var updateShipCell = function(shipId, x, y) {
+      if (checkShipChangedCell(shipId, x, y)) {
+        removeShipFromCell(shipId);
+        findCellAndInsertShip(shipId, x, y);
+      }
+    }
+    
+    /*
+     * Private method: updateRocketCell(rocketId, x, y)
+     *
+     * Updates a rocket's cell if the given (x, y) moves it into a cell different from its previous one.
+     */
+    var updateRocketCell = function(rocketId, x, y) {
+      if (checkRocketChangedCell(rocketId, x, y)) {
+        removeRocketFromCell(rocketId);
+        findCellAndInsertRocket(rocketId, x, y);
+      }
+    }
+    
     /*
      * private method: broadcast(msg)
      *
@@ -102,9 +373,13 @@ function MMOServer() {
         var  j;
         for (i in ships) {
             ships[i].moveOneStep();
+            // AOI: update ship cell if it goes to a new cell
+            updateShipCell(i, ships[i].x, ships[i].y);
         }
         for (i in rockets) {
             rockets[i].moveOneStep();
+            // AOI: update rocket cell if it goes to a new cell
+            updateRocketCell(i, rockets[i].x, rockets[i].y);
             // remove out of bounds rocket
             if (rockets[i].x < 0 || rockets[i].x > Config.WIDTH ||
                 rockets[i].y < 0 || rockets[i].y > Config.HEIGHT) {
@@ -140,21 +415,21 @@ function MMOServer() {
             var sockjs = require('sockjs');
             var sock = sockjs.createServer();
 
-            var numRows = Config.HEIGHT / DEFAULT_CELL_WIDTH;
-            var numColumns = Config.WIDTH / DEFAULT_CELL_WIDTH;
+            var numRows = Config.HEIGHT / CELL_WIDTH;
+            var numColumns = Config.WIDTH / CELL_WIDTH;
 
             //initialise 2d array
-            for (var i = 0; i < numRows; i++) {
+            for (var i = 0; i < numRows+1; i++) {
                 cells[i] = [];
             }
 
             //initialise cells
-            for (var i = 0; i < numRows; i++) {
-                for (var j = 0; j < numColumns; j++) {
-                    var centerX = (j * DEFAULT_CELL_WIDTH + DEFAULT_CELL_WIDTH/2);
-                    var centerY = (i * DEFAULT_CELL_WIDTH + DEFAULT_CELL_WIDTH/2);
+            for (var i = 0; i < numRows+1; i++) {
+                for (var j = 0; j < numColumns+1; j++) {
+                    var centerX = (j * CELL_WIDTH + CELL_WIDTH/2);
+                    var centerY = (i * CELL_WIDTH + CELL_WIDTH/2);
                     cells[i][j] = new Cell();
-                    cells[i][j].init(centerX, centerY, DEFAULT_CELL_WIDTH, DEFAULT_CELL_WIDTH);
+                    cells[i][j].init(centerX, centerY, CELL_WIDTH, CELL_WIDTH);
                 }
             }
 
@@ -205,6 +480,10 @@ function MMOServer() {
                             }
                             ships[pid] = new Ship();
                             ships[pid].init(x, y, dir);
+                            
+                            // AOI: insert the new ship into its appropriate cell
+                            findCellAndInsertShip(pid, x, y);
+                            
                             broadcastUnless({
                                 type: "new", 
                                 id: pid, 
@@ -256,6 +535,10 @@ function MMOServer() {
                             r.init(message.x, message.y, message.dir, pid);
                             var rocketId = new Date().getTime();
                             rockets[rocketId] = r;
+                            
+                            // AOI: insert the new rocket into its appropriate cell
+                            findCellAndInsertRocket(rocketId, message.x, message.y);
+                            
                             broadcast({
                                 type:"fire",
                                 ship: pid,

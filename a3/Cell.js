@@ -51,11 +51,11 @@ function Cell()
   
   // Unsubscribes a ship from the cell
   this.unsubscribeShip = function(playerId) {
-    if (typeof rocketId === 'undefined') {
+    if (typeof playerId === 'undefined') {
       console.log("Error in Cell.unsubscribeShip(): playerId is undefined");
       return;
-    } else if (typeof rockets[rocketId] === 'undefined') {
-      console.log("Error in Cell.unsubscribeRocket(): playerId " + playerId + " is not found in the cell at (" + this.x + "," + this.y + ")");
+    } else if (typeof ships[playerId] === 'undefined') {
+      console.log("Error in Cell.unsubscribeRocket(): playerId " + playerId + " is not found in the cell at (x,y):(" + this.x + "," + this.y + ")");
       return;
     }
     
