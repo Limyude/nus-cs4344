@@ -29,7 +29,7 @@ function MMOServer() {
     var AOI_LENGTH_SHIP = 500;  // The AOI length of the ships (AOI will not be an infinite cross)
     var AOI_RADIUS_ROCKET = 2;  // The AOI radius of a rocket to check for collision
     var DEFAULT_CELL_WIDTH = AOI_WIDTH_SHIP/2;
-    var cells[][]; // The cells for Interest Management
+    var cells = []; // The cells for Interest Management
     
      
 
@@ -139,6 +139,24 @@ function MMOServer() {
             var http = require('http');
             var sockjs = require('sockjs');
             var sock = sockjs.createServer();
+
+            var numRows = Config.HEIGHT / DEFAULT_CELL_WIDTH;
+            var numColumns = Config.WIDTH / DEFAULT_CELL_WIDTH;
+
+            //initialise 2d array
+            for (var i = 0; i < numRows; i++) {
+                cells[i] = [];
+            }
+
+            //initialise cells
+            for (var i = 0; i < numRows; i++) {
+                for (var j = 0; j < numColumns; j++) {
+                    var centerX = (j * DEFAULT_CELL_WIDTH + DEFAULT_CELL_WIDTH/2);
+                    var centerY = (i * DEFAULT_CELL_WIDTH + DEFAULT_CELL_WIDTH/2);
+                    cells[i][j] = new Cell();
+                    cells[i][j].init(centerX, centerY, DEFAULT_CELL_WIDTH, DEFAULT_CELL_WIDTH);
+                }
+            }
 
             // Upon connection established from a client socket
             sock.on('connection', function (conn) {
