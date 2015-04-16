@@ -10,6 +10,7 @@
 
 function Client() {
     var sock;          // socket to server
+    var sock2;
     var ships = {};    // associative array of ships, indexed by ship ID
     var rockets = {};  // associative array of rockets, indexed by rocket ID
     var myShip;        // my ship object  (same as ships[myId])
@@ -28,6 +29,7 @@ function Client() {
         showMessage("sent", ++countMessagesSent);
         console.log("send-> " + JSON.stringify(msg));
         sock.send(JSON.stringify(msg));
+        //sock2.send(JSON.stringify(msg));
     }
 
     /*
@@ -138,7 +140,104 @@ function Client() {
             // When connection to server is open, ask to join.
             sendToServer({type:"join"});
         }
+        /*
+        sock2 = new SockJS('http://' + Config.SERVER_NAME + ':' + Config.PORT2 + '/space');
+        sock2.onmessage = function(e) {
+        var message = JSON.parse(e.data);
+            console.log(e.data);
+            showMessage("received", ++countMessagesRcv);
+            switch (message.type) {
+                case "join": 
+                    // Server agrees to let this client join.
+                    myId = message.id;
+                    ships[myId] = new Ship();
+                    myShip = ships[myId];
+                    myShip.init(message.x, message.y, message.dir);
 
+                    // Start the game loop
+                    setInterval(function() {gameLoop();}, 1000/Config.FRAME_RATE); 
+                    break;
+                case "new":
+                    // Add a ship to the battlefield.
+                    var id = message.id;
+                    ships[id] = new Ship();
+                    ships[id].init(message.x, message.y, message.dir);
+                    break;
+                case "turn":
+                    // Ship id just turned to dir at position (x,y)
+                    var id = message.id;
+                    if (ships[id] === undefined) {
+                        console.log("turn error: undefined ship " + id);
+                    } else {
+                        // We do zero-order convergence for simplicity here.
+                        ships[id].jumpTo(message.x, message.y);
+                        ships[id].turn(message.dir);
+                    }
+                    break;
+                case "fire":
+                    // Ship sid just fired a rocket rid in dir 
+                    // at position (x,y)
+                    var sid = message.ship;
+                    var rid = message.rocket;
+                    if (ships[sid] === undefined) {
+                        console.log("fire error: undefined ship " + sid);
+                    } 
+                    var r = new Rocket();
+                    r.init(message.x, message.y, message.dir, sid);
+                    rockets[rid] = r;
+                    break;
+                case "hit":
+                    // Rocket rid just hit Ship rid
+                    var sid = message.ship;
+                    var rid = message.rocket;
+                    if (ships[sid] === undefined) {
+                        console.log("hit error: undefined ship " + sid);
+                    } else {
+                        // If this client has been hit, increase hit count
+                        ships[sid].hit();
+                        if (sid == myId) {
+                            showMessage("hitCount", myShip.hitCount);
+                        }
+                    }
+                    if (rockets[rid] === undefined) {
+                        console.log("hit error: undefined rocket " + rid);
+                    } else {
+                        // If it is this client's rocket that hits, increase kill count
+                        ships[rockets[rid].from].kill();
+                        if (rockets[rid].from == myId) {
+                            showMessage("killCount", myShip.killCount);
+                        }
+                        // Remove the rocket
+                        delete rockets[rid];
+                    }
+                    break;
+                case "delete":
+                    // Ship ID has quit. Remove the ship from the battle.
+                    var id = message.id;
+                    if (ships[id] === undefined) {
+                        console.log("delete error: undefined ship " + id);
+                    } else {
+                        delete ships[id];
+                    }
+                    break;
+                default:
+                    console.log("error: undefined command " + message.type);
+            }
+        };
+
+        sock2.onopen = function() {
+            // When connection to server is open, ask to join.
+            sendToServer({type:"join"});
+        }
+        sock2.onclose = function() {
+            // Connection to server has closed.  Delete everything.
+            for (var i in ships) {
+                delete ships[i];
+            }
+            for (var i in rockets) {
+                delete rockets[i];
+            }
+        }*/
 
         // Setup the keyboard input.  User controls the game with
         // arrow keys and space bar.
@@ -255,6 +354,10 @@ function Client() {
                 rockets[i].draw(context, false);
         }
 
+        drawCellsAndAOI(context);
+    }
+
+    var drawCellsAndAOI = function(context) {
         //draw the cells
         context.save();
 
@@ -277,20 +380,68 @@ function Client() {
         context.lineWidth = 3;
         context.strokeStyle = 'hotpink';
         context.beginPath();
-        context.moveTo(myShip.x + 50, 0);
-        context.lineTo(myShip.x + 50, 700);
-        context.moveTo(myShip.x - 50, 0);
-        context.lineTo(myShip.x - 50, 700);
-        context.moveTo(0, myShip.y + 50);
-        context.lineTo(1000, myShip.y + 50);
-        context.moveTo(0, myShip.y - 50);
-        context.lineTo(1000, myShip.y - 50);
-        context.stroke();
 
+        //right vertical
+        context.moveTo(myShip.x + 50, myShip.y - 250);
+        context.lineTo(myShip.x + 50, myShip.y + 250);
+
+        if (myShip.y - 250 < 0) {
+            context.moveTo(myShip.x + 50, Config.HEIGHT);
+            context.lineTo(myShip.x + 50, Config.HEIGHT + myShip.y - 250);
+        }
+
+        if (myShip.y + 250 > Config.HEIGHT) {
+            context.moveTo(myShip.x + 50, 0);
+            context.lineTo(myShip.x + 50, myShip.y + 250 - Config.HEIGHT);
+        }
+
+        //left vertical
+        context.moveTo(myShip.x - 50, myShip.y - 250);
+        context.lineTo(myShip.x - 50, myShip.y + 250);
+
+        if (myShip.y - 250 < 0) {
+            context.moveTo(myShip.x - 50, Config.HEIGHT);
+            context.lineTo(myShip.x - 50, Config.HEIGHT + myShip.y - 250);
+        }
+
+        if (myShip.y + 250 > Config.HEIGHT) {
+            context.moveTo(myShip.x - 50, 0);
+            context.lineTo(myShip.x - 50, myShip.y + 250 - Config.HEIGHT);
+        }
+
+        //top horizontal
+        context.moveTo(myShip.x - 250, myShip.y + 50);
+        context.lineTo(myShip.x + 250, myShip.y + 50);
+
+        if (myShip.x - 250 < 0) {
+            context.moveTo(Config.WIDTH, myShip.y + 50);
+            context.lineTo(Config.WIDTH + myShip.x - 250, myShip.y + 50);
+        }
+
+        if (myShip.x + 250 > Config.WIDTH) {
+            context.moveTo(0, myShip.y + 50);
+            context.lineTo(myShip.x + 250 - Config.WIDTH, myShip.y + 50);
+        }
+
+        //btm horizonal
+        context.moveTo(myShip.x - 250, myShip.y - 50);
+        context.lineTo(myShip.x + 250, myShip.y - 50);
+        
+        if (myShip.x - 250 < 0) {
+            context.moveTo(Config.WIDTH, myShip.y - 50);
+            context.lineTo(Config.WIDTH + myShip.x - 250, myShip.y - 50);
+        }
+
+        if (myShip.x + 250 > Config.WIDTH) {
+            context.moveTo(0, myShip.y - 50);
+            context.lineTo(myShip.x + 250 - Config.WIDTH, myShip.y - 50);
+        }
+
+
+        context.stroke();
 
         context.restore();
     }
-
     /*
      * private method: showMessage(location, msg)
      *
