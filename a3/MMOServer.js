@@ -210,6 +210,7 @@ function MMOServer() {
         var c = Math.floor(cell.x/CELL_WIDTH);
         console.log("Unsubscribing ship " + shipId + " from cell (" + r + "," + c + ")");
       }
+      shipsCurrentSubscribedCellsRC[shipId] = [];
     }
     
     /*
