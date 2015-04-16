@@ -257,20 +257,37 @@ function Client() {
 
         //draw the cells
         context.save();
-        for (var i = 0; i < 1000; i+=100) {
+
+        context.lineWidth = 1;
+        for (var i = 0; i < 1000; i+=50) {
             context.beginPath();
             context.moveTo(i, 0);
             context.lineTo(i, 700);
             context.strokeStyle = 'white';
             context.stroke();
         }
-        for (var i = 0; i < 700; i+=100) {
+        for (var i = 0; i < 700; i+=50) {
             context.beginPath();
             context.moveTo(0, i);
             context.lineTo(1000, i);
             context.strokeStyle = 'white';
             context.stroke();
         }
+
+        context.lineWidth = 3;
+        context.strokeStyle = 'hotpink';
+        context.beginPath();
+        context.moveTo(myShip.x + 50, 0);
+        context.lineTo(myShip.x + 50, 700);
+        context.moveTo(myShip.x - 50, 0);
+        context.lineTo(myShip.x - 50, 700);
+        context.moveTo(0, myShip.y + 50);
+        context.lineTo(1000, myShip.y + 50);
+        context.moveTo(0, myShip.y - 50);
+        context.lineTo(1000, myShip.y - 50);
+        context.stroke();
+
+
         context.restore();
     }
 
