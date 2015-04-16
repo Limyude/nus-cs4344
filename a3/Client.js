@@ -15,6 +15,7 @@ function Client() {
     var myShip;        // my ship object  (same as ships[myId])
     var myId;          // My ship ID
 
+    var countMessagesRcv = 0;
     /*
      * private method: sendToServer(msg)
      *
@@ -80,6 +81,7 @@ function Client() {
                     var r = new Rocket();
                     r.init(message.x, message.y, message.dir, sid);
                     rockets[rid] = r;
+                    console.log("HI THERE");
                     break;
                 case "hit":
                     // Rocket rid just hit Ship rid
@@ -250,6 +252,24 @@ function Client() {
             else
                 rockets[i].draw(context, false);
         }
+
+        //draw the cells
+        context.save();
+        for (var i = 0; i < 1000; i+=100) {
+            context.beginPath();
+            context.moveTo(i, 0);
+            context.lineTo(i, 700);
+            context.strokeStyle = 'white';
+            context.stroke();
+        }
+        for (var i = 0; i < 700; i+=100) {
+            context.beginPath();
+            context.moveTo(0, i);
+            context.lineTo(1000, i);
+            context.strokeStyle = 'white';
+            context.stroke();
+        }
+        context.restore();
     }
 
     /*
