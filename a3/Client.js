@@ -16,6 +16,7 @@ function Client() {
     var myId;          // My ship ID
 
     var countMessagesRcv = 0;
+    var countMessagesSent = 0;
     /*
      * private method: sendToServer(msg)
      *
@@ -24,6 +25,7 @@ function Client() {
      * a string.
      */
     var sendToServer = function (msg) {
+        console.log("Messages sent " + ++countMessagesSent);
         console.log("send-> " + JSON.stringify(msg));
         sock.send(JSON.stringify(msg));
     }
@@ -42,6 +44,7 @@ function Client() {
         sock.onmessage = function(e) {
         var message = JSON.parse(e.data);
             console.log(e.data);
+            console.log("Messages received " + ++countMessagesRcv);
             switch (message.type) {
                 case "join": 
                     // Server agrees to let this client join.
@@ -81,7 +84,6 @@ function Client() {
                     var r = new Rocket();
                     r.init(message.x, message.y, message.dir, sid);
                     rockets[rid] = r;
-                    console.log("HI THERE");
                     break;
                 case "hit":
                     // Rocket rid just hit Ship rid
