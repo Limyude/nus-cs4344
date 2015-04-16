@@ -126,20 +126,17 @@ function MMOServer() {
     var getCellsForCrossAOI = function(x, y, width, length) {
       var cellsToRet = [];
       // Get the topR, bottomR, leftC, rightC of the middle square surrounding (x, y)
-      var topR = Math.floor((y-width/2)/AOI_WIDTH_SHIP); topR = Math.max(0, topR);
-      var bottomR = Math.floor((y+width/2)/AOI_WIDTH_SHIP); bottomR = Math.min(cells.length-1, bottomR);
-      var leftC = Math.floor((x-width/2)/AOI_WIDTH_SHIP); leftC = Math.max(0, leftC);
-      var rightC = Math.floor((x+width/2)/AOI_WIDTH_SHIP); rightC = Math.min(cells[0].length-1, rightC);
+      var topR = Math.floor((y-width/2)/CELL_WIDTH); topR = Math.max(0, topR);
+      var bottomR = Math.floor((y+width/2)/CELL_WIDTH); bottomR = Math.min(cells.length-1, bottomR);
+      var leftC = Math.floor((x-width/2)/CELL_WIDTH); leftC = Math.max(0, leftC);
+      var rightC = Math.floor((x+width/2)/CELL_WIDTH); rightC = Math.min(cells[0].length-1, rightC);
       console.log("topR " + topR + " bottomR " + bottomR + " leftC " + leftC + " rightC " + rightC);
-      
-      // For wrapping around
-      var underflowTopR, overflowBottomR, underflowLeftC, overflowRightC;
       
       // Find cells that intersect the horizontal rectangle
       var newTopR = topR; newTopR = Math.max(0, newTopR);
       var newBottomR = bottomR; newBottomR = Math.min(cells.length-1, newBottomR);
-      var newLeftC = Math.floor((x-length/2)/AOI_WIDTH_SHIP); newLeftC = Math.max(0, newLeftC);
-      var newRightC = Math.floor((x+length/2)/AOI_WIDTH_SHIP); newRightC = Math.min(cells[0].length-1, newRightC);
+      var newLeftC = Math.floor((x-length/2)/CELL_WIDTH); newLeftC = Math.max(0, newLeftC);
+      var newRightC = Math.floor((x+length/2)/CELL_WIDTH); newRightC = Math.min(cells[0].length-1, newRightC);
       console.log("newTopR " + newTopR + " newBottomR " + newBottomR + " newLeftC " + newLeftC + " newRightC " + newRightC);
       for (var r = newTopR; r <= newBottomR; r++) {
         for (var c = newLeftC; c <= newRightC; c++) {
@@ -148,7 +145,7 @@ function MMOServer() {
       }
       
       // Find cells that intersect the top part of the vertical rectangle
-      newTopR = Math.floor((y-length/2)/AOI_WIDTH_SHIP); newTopR = Math.max(0, newTopR);
+      newTopR = Math.floor((y-length/2)/CELL_WIDTH); newTopR = Math.max(0, newTopR);
       newBottomR = topR - 1; newBottomR = Math.min(cells.length-1, newBottomR);
       newLeftC = leftC; newLeftC = Math.max(0, newLeftC);
       newRightC = rightC; newRightC = Math.min(cells[0].length-1, newRightC);
@@ -160,7 +157,7 @@ function MMOServer() {
       
       // Find cells that intersect the bottom part of the vertical rectangle
       newTopR = bottomR + 1; newTopR = Math.max(0, newTopR);
-      newBottomR = Math.floor((y+length/2)/AOI_WIDTH_SHIP); newBottomR = Math.min(cells.length-1, newBottomR);
+      newBottomR = Math.floor((y+length/2)/CELL_WIDTH); newBottomR = Math.min(cells.length-1, newBottomR);
       newLeftC = leftC; newLeftC = Math.max(0, newLeftC);
       newRightC = rightC; newRightC = Math.min(cells[0].length-1, newRightC);
       for (var r = newTopR; r <= newBottomR; r++) {
@@ -467,6 +464,7 @@ function MMOServer() {
             } else {
                 // AOI: update rocket cell if it goes to a new cell
                 updateRocketCell(i, rockets[i].x, rockets[i].y);
+                
                 // For each ship, checks if this rocket has hit the ship
                 // A rocket cannot hit its own ship.
                 for (j in ships) {
