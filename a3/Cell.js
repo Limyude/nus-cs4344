@@ -84,8 +84,29 @@ function Cell()
   this.getRockets = function() {
     return rockets;
   }
+  
+  // Checks if a point (x,y) is in the cell
+  this.pointInCell = function(x, y) {
+    if (typeof x === 'undefined') {
+      console.log("Error in Cell.pointInCell(): x is undefined");
+      return;
+    } else if (typeof y === 'undefined') {
+      console.log("Error in Cell.pointInCell(): y is undefined");
+      return;
+    }
+    
+    // On the left or top borders = in the cell,
+    // but on the right or bottom borders = out of the cell
+    if (x >= (this.x - this.w/2) && x < (this.x + this.w/2) &&
+      y >= (this.y - this.h/2) && y < (this.y + this.h/2)) {
+      // In the cell!
+      return true;
+    } else {
+      // Out of the cell!
+      return false;
+    }
+  }
 }
-
 
 global.Cell = Cell;
 
@@ -109,4 +130,4 @@ if (typeof window === "undefined") {
 	};
 }
 
-// vim:ts=4:sw=4:expandtab
+//vim:ts=4:sw=4:expandtab
