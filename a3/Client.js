@@ -25,7 +25,7 @@ function Client() {
      * a string.
      */
     var sendToServer = function (msg) {
-        console.log("Messages sent " + ++countMessagesSent);
+        showMessage("sent", ++countMessagesSent);
         console.log("send-> " + JSON.stringify(msg));
         sock.send(JSON.stringify(msg));
     }
@@ -44,7 +44,7 @@ function Client() {
         sock.onmessage = function(e) {
         var message = JSON.parse(e.data);
             console.log(e.data);
-            console.log("Messages received " + ++countMessagesRcv);
+            showMessage("received", ++countMessagesRcv);
             switch (message.type) {
                 case "join": 
                     // Server agrees to let this client join.
