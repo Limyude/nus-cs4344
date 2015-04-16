@@ -55,7 +55,7 @@ function Cell()
       console.log("Error in Cell.unsubscribeShip(): playerId is undefined");
       return;
     } else if (typeof ships[playerId] === 'undefined') {
-      console.log("Error in Cell.unsubscribeShip(): playerId " + playerId + " is not found in the cell at (x,y):(" + this.x + "," + this.y + ")");
+      //console.log("Error in Cell.unsubscribeShip(): playerId " + playerId + " is not found in the cell at (x,y):(" + this.x + "," + this.y + ")");
       return;
     }
     

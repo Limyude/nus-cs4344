@@ -27,7 +27,7 @@ function MMOServer() {
     // private constants for Area-of-Interest management
     var AOI_WIDTH_SHIP = 100;   // The AOI width of the ships (AOI will be a cross)
     var AOI_LENGTH_SHIP = 500;  // The AOI length of the ships (AOI will not be an infinite cross)
-    var AOI_RADIUS_ROCKET = 2;  // The AOI radius of a rocket to check for collision
+    var AOI_RADIUS_ROCKET = 12;  // The AOI radius of a rocket to check for collision
     var CELL_WIDTH = AOI_WIDTH_SHIP/2;
     var CELL_HEIGHT = CELL_WIDTH;
     
@@ -36,7 +36,8 @@ function MMOServer() {
     var isCellsInitialized = false;
     var shipsCurrentCellRC = {}; // Associative array of the cell (r, c) which the ship is currently in, indexed by the playerId
     var rocketsCurrentCellRC = {}; // Associative array of the cell (r, c) which the rocket is currently in, indexed by the rocketId
-    var shipsCurrentSubscribedCellsRC = {}; // Associative array of the cells (r, c) which the ship is currently subscribed to, indexed by the playerId    
+    var shipsCurrentSubscribedCellsRC = {}; // Associative array of the cells (r, c) which the ship is currently subscribed to, indexed by the playerId   
+    var rocketsSeenByShips = {}; // Associative array of the rockets seen by ships, indexed by playerId
     
     // private methods for Area-of-Interest management
     
@@ -119,9 +120,34 @@ function MMOServer() {
     }
     
     /*
+     * Private method: getCellsForCircleAOI(x, y, radius)
+     *
+     * Returns an array of cells which the circle AOI defined by (x, y, radius) intersects and contains
+     */
+    var getCellsForCircleAOI = function(x, y, radius) {
+      var cellsToRet = [];
+      var uniquenessMap = {};
+      for (var i = 0; i <= 16; i++) {
+        var newX = x + radius * Math.cos(i * 2 * Math.PI / 16);
+        var newY = y + radius * Math.sin(i * 2 * Math.PI / 16);
+        var r = Math.floor(newY/CELL_HEIGHT);
+        var c = Math.floor(newX/CELL_WIDTH);
+        if (r < 0 || r >= cells.length || c < 0 || c >= cells[0].length) {
+          continue;
+        }
+        if ( !uniquenessMap[r * cells[0].length + c]) {
+          var cell = getCell(r, c);
+          cellsToRet.push(cell);
+          uniquenessMap[r * cells[0].length + c] = true;
+        }
+      }
+      return cellsToRet;
+    }
+    
+    /*
      * Private method: getCellsForCrossAOI(x, y, width, length)
      *
-     * Returns an array of cells which the cross AOI defined by (x, y, width, length) intersects
+     * Returns an array of cells which the cross AOI defined by (x, y, width, length) intersects and contains
      */
     var getCellsForCrossAOI = function(x, y, width, length) {
       var cellsToRet = [];
@@ -370,9 +396,6 @@ function MMOServer() {
         var cell = getShipCell(shipId);
         var shipsSubscribed = cell.getShips();
         delete shipsSubscribed[shipId]; // don't send back
-        for (var i in shipsSubscribed) {
-          console.log("Sending turn message to ship " + i);
-        }
         broadcastSelectively(shipsSubscribed, {
           type:"turn",
           id: shipId,
@@ -391,8 +414,28 @@ function MMOServer() {
      */
     var updateRocketCell = function(rocketId, x, y) {
       if (checkRocketChangedCell(rocketId, x, y)) {
-        // TO DO update interested parties (if necessary?)
         findCellAndInsertRocket(rocketId, x, y);
+        // AOI: Send the turn event only to people subscribed to the cell AND who have not seen the rocket already
+        var cell = getRocketCell(rocketId);
+        var shipsSubscribed = cell.getShips();
+        for (var i in shipsSubscribed) {
+          rocketsSeenByShips[i] = rocketsSeenByShips[i] || {};
+          var rocketsSeen = rocketsSeenByShips[i];
+          if ( !rocketsSeen[rocketId]) {
+            rocketsSeen[rocketId] = rocketId;
+          } else {
+            delete shipsSubscribed[i];
+          }
+        }
+        var rocket = rockets[rocketId];
+        broadcastSelectively(shipsSubscribed, {
+            type:"fire",
+            ship: rocket.from,
+            rocket: rocketId,
+            x: rocket.x,
+            y: rocket.y,
+            dir: rocket.dir
+        });
       }
     }
     
@@ -493,15 +536,38 @@ function MMOServer() {
             } else {
                 // AOI: update rocket cell if it goes to a new cell
                 updateRocketCell(i, rockets[i].x, rockets[i].y);
-                
+                // AOI: check only the ships which are nearby!
+                var nearbyCells = getCellsForCircleAOI(rockets[i].x, rockets[i].y, AOI_RADIUS_ROCKET);
+                var nearbyShips = {};
+                for (var k in nearbyCells) {
+                  var cell = nearbyCells[k];
+                  var subscribedShips = cell.getShips();
+                  for (var j in subscribedShips) {
+                    var s = ships[subscribedShips[j]];
+                    if (typeof s === 'undefined') {
+                      continue;
+                    }
+                    var dx = s.x - rockets[i].x;
+                    var dy = s.y - rockets[i].y;
+                    //console.log("s.x = " + s.x + " s.y = " + s.y);
+                    //console.log(Math.sqrt(dx*dx + dy*dy));
+                    if (Math.sqrt(dx*dx + dy*dy) < AOI_RADIUS_ROCKET) {
+                      nearbyShips[j] = s;
+                    }
+                  }
+                }
                 // For each ship, checks if this rocket has hit the ship
                 // A rocket cannot hit its own ship.
-                for (j in ships) {
+                for (j in nearbyShips) {
                     if (rockets[i] != undefined && rockets[i].from != j) {
-                        if (rockets[i].hasHit(ships[j])) {
-                            // tell everyone there is a hit
-                            broadcast({type:"hit", rocket:i, ship:j})
+                        //console.log("Checking collision with ship " + j);
+                        if (rockets[i].hasHit(nearbyShips[j])) {
+                            // tell only the shooter and the shot
+                            var shooter = rockets[i].from;
+                            unicast(sockets[shooter], {type:"hit", rocket: i, ship: j});
+                            unicast(sockets[j], {type:"hit", rocket: i, ship: j});
                             delete rockets[i];
+                            //console.log("Rocket from " + shooter + " hit " + j);
                         }
                     } 
                 }
@@ -654,15 +720,16 @@ function MMOServer() {
                             
                             // AOI: insert the new rocket into its appropriate cell
                             findCellAndInsertRocket(rocketId, message.x, message.y);
-                            
-                            broadcast({
+                            // Send to the player
+                            unicast(sockets[pid], {
                                 type:"fire",
-                                ship: pid,
+                                ship: r.from,
                                 rocket: rocketId,
-                                x: message.x,
-                                y: message.y,
-                                dir: message.dir
+                                x: r.x,
+                                y: r.y,
+                                dir: r.dir
                             });
+                            // Note that messages about rockets will only be sent to other players when they enter their AOI
                             break;
                             
                         default:
