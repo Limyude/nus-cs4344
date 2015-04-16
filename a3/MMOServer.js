@@ -33,8 +33,10 @@ function MMOServer() {
     
     // private variables for Area-of-Interest management
     var cells = []; // The cells (2d array) for Interest Management
-    var shipsCurrentCellRC = {}; // Associative array of the cell (r, c) which the ship is currently subscribed to, indexed by the playerId
-    var rocketsCurrentCellRC = {}; // Associative array of the cell (r, c) which the rocket is currently subscribed to, indexed by the rocketId
+    var isCellsInitialized = false;
+    var shipsCurrentCellRC = {}; // Associative array of the cell (r, c) which the ship is currently in, indexed by the playerId
+    var rocketsCurrentCellRC = {}; // Associative array of the cell (r, c) which the rocket is currently in, indexed by the rocketId
+    var shipsCurrentSubscribedCellsRC = {}; // Associative array of the cells (r, c) which the ship is currently subscribed to, indexed by the playerId    
     
     // private methods for Area-of-Interest management
     
@@ -117,57 +119,134 @@ function MMOServer() {
     }
     
     /*
+     * Private method: getCellsForCrossAOI(x, y, width, length)
+     *
+     * Returns an array of cells which the cross AOI defined by (x, y, width, length) intersects
+     */
+    var getCellsForCrossAOI = function(x, y, width, length) {
+      var cellsToRet = [];
+      // Get the topR, bottomR, leftC, rightC of the middle square surrounding (x, y)
+      var topR = Math.floor((y-width/2)/AOI_WIDTH_SHIP); topR = Math.max(0, topR);
+      var bottomR = Math.floor((y+width/2)/AOI_WIDTH_SHIP); bottomR = Math.min(cells.length-1, bottomR);
+      var leftC = Math.floor((x-width/2)/AOI_WIDTH_SHIP); leftC = Math.max(0, leftC);
+      var rightC = Math.floor((x+width/2)/AOI_WIDTH_SHIP); rightC = Math.min(cells[0].length-1, rightC);
+      console.log("topR " + topR + " bottomR " + bottomR + " leftC " + leftC + " rightC " + rightC);
+      
+      // For wrapping around
+      var underflowTopR, overflowBottomR, underflowLeftC, overflowRightC;
+      
+      // Find cells that intersect the horizontal rectangle
+      var newTopR = topR; newTopR = Math.max(0, newTopR);
+      var newBottomR = bottomR; newBottomR = Math.min(cells.length-1, newBottomR);
+      var newLeftC = Math.floor((x-length/2)/AOI_WIDTH_SHIP); newLeftC = Math.max(0, newLeftC);
+      var newRightC = Math.floor((x+length/2)/AOI_WIDTH_SHIP); newRightC = Math.min(cells[0].length-1, newRightC);
+      console.log("newTopR " + newTopR + " newBottomR " + newBottomR + " newLeftC " + newLeftC + " newRightC " + newRightC);
+      for (var r = newTopR; r <= newBottomR; r++) {
+        for (var c = newLeftC; c <= newRightC; c++) {
+          cellsToRet.push(getCell(r, c));
+        }
+      }
+      
+      // Find cells that intersect the top part of the vertical rectangle
+      newTopR = Math.floor((y-length/2)/AOI_WIDTH_SHIP); newTopR = Math.max(0, newTopR);
+      newBottomR = topR - 1; newBottomR = Math.min(cells.length-1, newBottomR);
+      newLeftC = leftC; newLeftC = Math.max(0, newLeftC);
+      newRightC = rightC; newRightC = Math.min(cells[0].length-1, newRightC);
+      for (var r = newTopR; r <= newBottomR; r++) {
+        for (var c = newLeftC; c <= newRightC; c++) {
+          cellsToRet.push(getCell(r, c));
+        }
+      }
+      
+      // Find cells that intersect the bottom part of the vertical rectangle
+      newTopR = bottomR + 1; newTopR = Math.max(0, newTopR);
+      newBottomR = Math.floor((y+length/2)/AOI_WIDTH_SHIP); newBottomR = Math.min(cells.length-1, newBottomR);
+      newLeftC = leftC; newLeftC = Math.max(0, newLeftC);
+      newRightC = rightC; newRightC = Math.min(cells[0].length-1, newRightC);
+      for (var r = newTopR; r <= newBottomR; r++) {
+        for (var c = newLeftC; c <= newRightC; c++) {
+          cellsToRet.push(getCell(r, c));
+        }
+      }
+      
+      return cellsToRet;
+    }
+    
+    /*
+     * Private method: subscribeShip(shipId)
+     * 
+     * Subscribes the ship into all the cells it is interested in
+     */
+    var subscribeShip = function(shipId) {
+      var s = ships[shipId];
+      var cells = getCellsForCrossAOI(s.x, s.y, AOI_WIDTH_SHIP, AOI_LENGTH_SHIP);
+      if ( !shipsCurrentSubscribedCellsRC[shipId]) {
+        shipsCurrentSubscribedCellsRC[shipId] = [];
+      }
+      var subscribedCellsRC = shipsCurrentSubscribedCellsRC[shipId];
+      var i;
+      for (i in cells) {
+        cells[i].subscribeShip(shipId);
+        var r = Math.floor(cells[i].y/CELL_HEIGHT);
+        var c = Math.floor(cells[i].x/CELL_WIDTH);
+        subscribedCellsRC.push({r: r, c: c});
+        console.log("Subscribing ship " + shipId + " to cell (" + r + "," + c + ")");
+      }
+    }
+    
+    /*
+     * Private method: unsubscribeShip(shipId) 
+     * 
+     * Unsubscribes the ship from all the cells it is currently subscribed to
+     */
+    var unsubscribeShip = function(shipId) {
+      var subscribedCells = shipsCurrentSubscribedCellsRC[shipId];
+      var i;
+      for (i in subscribedCells) {
+        var cellRC = subscribedCells[i];
+        var cell = getCell(cellRC.r, cellRC.c);
+        cell.unsubscribeShip(shipId);
+        var r = Math.floor(cell.y/CELL_HEIGHT);
+        var c = Math.floor(cell.x/CELL_WIDTH);
+        console.log("Unsubscribing ship " + shipId + " from cell (" + r + "," + c + ")");
+      }
+    }
+    
+    /*
      * Private method: insertShipIntoCell(shipId, r, c)
      *
-     * Inserts (subscribes) the ship into the cell specified by indices (r, c)
+     * Inserts (subscribes) the ship into the cell specified by indices (r, c) 
+     * and subscribes it to all the cells it is interested in
      */
-    var insertShipIntoCell = function(shipId, r, c) {      
-      var cell = getCell(r, c);
-      cell.subscribeShip(shipId);
+    var insertShipIntoCell = function(shipId, r, c) {   
+      subscribeShip(shipId);
       shipsCurrentCellRC[shipId] = {r: r, c: c};
-      console.log("Ship inserted into cell (" + r + "," + c + ")");
-      return cell;
+      console.log("Ship went into new cell (" + r + "," + c + ")");
     }
     
     /*
      * Private method: insertRocketIntoCell(shipId, r, c)
      *
-     * Inserts (subscribes) the rocket into the cell specified by indices (r, c)
+     * Inserts (subscribes) the rocket into the cell specified by indices (r, c) 
+     * and subscribes it to all the cells it is interested in
      */
-    var insertRocketIntoCell = function(rocketId, r, c) {      
-      var cell = getCell(r, c);
-      cell.subscribeRocket(rocketId);
+    var insertRocketIntoCell = function(rocketId, r, c) {    
       rocketsCurrentCellRC[rocketId] = {r: r, c: c};
-      console.log("Rocket inserted into cell (" + r + "," + c + ")");
-      return cell;
+      console.log("Rocket went into new cell (" + r + "," + c + ")");
     }
     
     /*
      * Private method: removeShipFromCell(shipId)
      *
-     * Removes (unsubscribes) the ship from its current cell
+     * Unsubscribes the ship from all its currently subscribed cells
      */
     var removeShipFromCell = function(shipId) {
       var cell = getShipCell(shipId);
-      cell.unsubscribeShip(shipId);
+      unsubscribeShip(shipId);
       delete shipsCurrentCellRC[shipId];
       var r = Math.floor(cell.y/CELL_HEIGHT);
       var c = Math.floor(cell.x/CELL_WIDTH);
       console.log("Ship removed from cell (" + r + "," + c + ")");
-    }
-    
-    /*
-     * Private method: removeRocketFromCell(rocketId)
-     *
-     * Removes (unsubscribes) the rocket from its current cell
-     */
-    var removeRocketFromCell = function(rocketId) {
-      var cell = getRocketCell(rocketId);
-      cell.unsubscribeRocket(rocketId);
-      delete rocketsCurrentCellRC[rocketId];
-      var r = Math.floor(cell.y/CELL_HEIGHT);
-      var c = Math.floor(cell.x/CELL_WIDTH);
-      console.log("Rocket removed from cell (" + r + "," + c + ")");
     }
     
     /*
@@ -177,7 +256,7 @@ function MMOServer() {
      */
     var findCellAndInsertShip = function(shipId, x, y) {
       var cellRC = locateCellRC(x, y);
-      return insertShipIntoCell(shipId, cellRC.r, cellRC.c);
+      insertShipIntoCell(shipId, cellRC.r, cellRC.c);
     }
     
     /*
@@ -187,7 +266,7 @@ function MMOServer() {
      */
     var findCellAndInsertRocket = function(rocketId, x, y) {
       var cellRC = locateCellRC(x, y);
-      return insertRocketIntoCell(rocketId, cellRC.r, cellRC.c);
+      insertRocketIntoCell(rocketId, cellRC.r, cellRC.c);
     }
     
     /*
@@ -296,10 +375,11 @@ function MMOServer() {
      * Private method: updateRocketCell(rocketId, x, y)
      *
      * Updates a rocket's cell if the given (x, y) moves it into a cell different from its previous one.
+     * Updates the corresponding interested parties (entities subscribed)
      */
     var updateRocketCell = function(rocketId, x, y) {
       if (checkRocketChangedCell(rocketId, x, y)) {
-        removeRocketFromCell(rocketId);
+        // TO DO update interested parties (if necessary?)
         findCellAndInsertRocket(rocketId, x, y);
       }
     }
@@ -378,14 +458,14 @@ function MMOServer() {
         }
         for (i in rockets) {
             rockets[i].moveOneStep();
-            // AOI: update rocket cell if it goes to a new cell
-            updateRocketCell(i, rockets[i].x, rockets[i].y);
             // remove out of bounds rocket
             if (rockets[i].x < 0 || rockets[i].x > Config.WIDTH ||
                 rockets[i].y < 0 || rockets[i].y > Config.HEIGHT) {
                 rockets[i] = null;
                 delete rockets[i];
             } else {
+                // AOI: update rocket cell if it goes to a new cell
+                updateRocketCell(i, rockets[i].x, rockets[i].y);
                 // For each ship, checks if this rocket has hit the ship
                 // A rocket cannot hit its own ship.
                 for (j in ships) {
@@ -432,6 +512,9 @@ function MMOServer() {
                     cells[i][j].init(centerX, centerY, CELL_WIDTH, CELL_WIDTH);
                 }
             }
+            
+            // set the flag
+            isCellsInitialized = true;
 
             // Upon connection established from a client socket
             sock.on('connection', function (conn) {
