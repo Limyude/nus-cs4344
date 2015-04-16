@@ -22,6 +22,13 @@ function MMOServer() {
     var rockets = {}; // Associative array for rockets, indexed via timestamp
     var sockets = {}; // Associative array for sockets, indexed via player ID
     var players = {}; // Associative array for players, indexed via socket ID
+    
+    // private variables for Area-of-Interest management
+    var AOI_WIDTH_SHIP = 100;   // The AOI width of the ships (AOI will be a cross)
+    var AOI_LENGTH_SHIP = 500;  // The AOI length of the ships (AOI will not be an infinite cross)
+    var AOI_RADIUS_ROCKET = 2;  // The AOI radius of a rocket to check for collision
+    var DEFAULT_CELL_WIDTH = AOI_WIDTH_SHIP/2;
+    var cells[][]; // The cells for Interest Management
 
     /*
      * private method: broadcast(msg)
