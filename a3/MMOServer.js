@@ -126,19 +126,30 @@ function MMOServer() {
      */
     var getCellsForCircleAOI = function(x, y, radius) {
       var cellsToRet = [];
-      var uniquenessMap = {};
-      for (var i = 0; i <= 16; i++) {
-        var newX = x + radius * Math.cos(i * 2 * Math.PI / 16);
-        var newY = y + radius * Math.sin(i * 2 * Math.PI / 16);
+      var minR, maxR, minC, maxC;
+      minR = minC = 1000000009;
+      maxR = maxC = -1;
+      var n = 8;
+      for (var i = 0; i <= n; i++) {
+        var newX = x + radius * Math.cos(i * 2 * Math.PI / n);
+        var newY = y + radius * Math.sin(i * 2 * Math.PI / n);
         var r = Math.floor(newY/CELL_HEIGHT);
         var c = Math.floor(newX/CELL_WIDTH);
         if (r < 0 || r >= cells.length || c < 0 || c >= cells[0].length) {
           continue;
         }
-        if ( !uniquenessMap[r * cells[0].length + c]) {
-          var cell = getCell(r, c);
-          cellsToRet.push(cell);
-          uniquenessMap[r * cells[0].length + c] = true;
+        minR = Math.min(minR, r);
+        minC = Math.min(minC, c);
+        maxR = Math.max(maxR, r);
+        maxC = Math.max(maxC, c);
+      }
+      minR = Math.max(0, minR);
+      minC = Math.max(0, minC);
+      maxR = Math.min(cells.length, maxR);
+      maxC = Math.min(cells[0].length, maxC);
+      for (var r = minR; r <= maxR; r++) {
+        for (var c = minC; c <= maxC; c++) {
+          cellsToRet.push(getCell(r, c));
         }
       }
       return cellsToRet;
