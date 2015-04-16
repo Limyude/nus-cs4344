@@ -14,6 +14,7 @@ require(LIB_PATH + "Config.js");
 require(LIB_PATH + "Ship.js");
 require(LIB_PATH + "Rocket.js");
 require(LIB_PATH + "Player.js");
+require(LIB_PATH + "Cell.js");
 
 function MMOServer() {
     // private Variables
@@ -29,6 +30,8 @@ function MMOServer() {
     var AOI_RADIUS_ROCKET = 2;  // The AOI radius of a rocket to check for collision
     var DEFAULT_CELL_WIDTH = AOI_WIDTH_SHIP/2;
     var cells[][]; // The cells for Interest Management
+    
+     
 
     /*
      * private method: broadcast(msg)
