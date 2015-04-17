@@ -38,6 +38,7 @@ function MMOServer() {
     var rocketsCurrentCellRC = {}; // Associative array of the cell (r, c) which the rocket is currently in, indexed by the rocketId
     var shipsCurrentSubscribedCellsRC = {}; // Associative array of the cells (r, c) which the ship is currently subscribed to, indexed by the playerId   
     var rocketsSeenByShips = {}; // Associative array of the rockets seen by ships, indexed by playerId
+    var shipsThatSeenRocket = {}; // Associative array of the ships which have seen a rocket, indexed by rocketId
     var cellsShipIds = {}; // Associative array of the ships that are in a cell (r, c)
     
     // private methods for Area-of-Interest management
@@ -131,6 +132,18 @@ function MMOServer() {
       var cellId = getCellId(r, c);
       cellsShipIds[cellId] = cellsShipIds[cellId] || {};
       return cellsShipIds[cellId];
+    }
+    
+    /*
+     * Private method: getPlayersWhoHaveSeenRocket(rocketId)
+     *
+     * Returns an associative array of ship Ids who have seen the rocket rocketId
+     */
+    var getPlayersWhoHaveSeenRocket = function(rocketId) {
+      if (!shipsThatSeenRocket[rocketId]) {
+        return {};
+      }
+      return shipsThatSeenRocket[rocketId];
     }
     
     /*
@@ -467,6 +480,8 @@ function MMOServer() {
         for (var i in shipsSubscribed) {
           rocketsSeenByShips[i] = rocketsSeenByShips[i] || {};
           var rocketsSeen = rocketsSeenByShips[i];
+          shipsThatSeenRocket[rocketId] = shipsThatSeenRocket[rocketId] || {};
+          shipsThatSeenRocket[rocketId][i] = i;
           if ( !rocketsSeen[rocketId]) {
             rocketsSeen[rocketId] = rocketId;
           } else {
@@ -597,7 +612,7 @@ function MMOServer() {
                           if (ships[j] && rockets[i].hasHit(ships[j])) {
                               // tell only the shooter and the shot
                               var shooter = rockets[i].from;
-                              broadcast({type:"hit", rocket: i, ship: j});
+                              broadcastSelectively(getPlayersWhoHaveSeenRocket(i), {type:"hit", rocket: i, ship: j});
                               delete rockets[i];
                               //console.log("Rocket from " + shooter + " hit " + j);
                           }
@@ -760,6 +775,8 @@ function MMOServer() {
                             for (var i in subscribedShips) {
                               rocketsSeenByShips[i] = rocketsSeenByShips[i] || {};
                               var rocketsSeen = rocketsSeenByShips[i];
+                              shipsThatSeenRocket[rocketId] = shipsThatSeenRocket[rocketId] || {};
+                              shipsThatSeenRocket[rocketId][i] = i;
                               if ( !rocketsSeen[rocketId]) {
                                 rocketsSeen[rocketId] = rocketId;
                               } else {
