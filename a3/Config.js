@@ -5,6 +5,7 @@ var Config = {
 	HEIGHT : 700,				// height of game window
 	WIDTH : 1000,				// width of game window
 	PORT : 4344,				// port of game
+	PORT2 : 4345,				// port2 of game
 	FRAME_RATE : 40,			// frame rate 
 	SERVER_NAME : "localhost"	// server name of game
 	//SERVER_NAME : "172.28.176.122"	// server name of game

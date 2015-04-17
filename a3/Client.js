@@ -10,7 +10,8 @@
 
 function Client() {
     var sock;          // socket to server
-    var sock2;
+    var sockets = [];
+    var socketId = 0;
     var ships = {};    // associative array of ships, indexed by ship ID
     var rockets = {};  // associative array of rockets, indexed by rocket ID
     var myShip;        // my ship object  (same as ships[myId])
@@ -32,8 +33,11 @@ function Client() {
     var sendToServer = function (msg) {
         showMessage("sent", ++countMessagesSent);
         console.log("send-> " + JSON.stringify(msg));
-        sock.send(JSON.stringify(msg));
-        //sock2.send(JSON.stringify(msg));
+        for (var i in sockets) {
+            if (sockets[i] != undefined) {
+                sockets[i].send(JSON.stringify(msg));
+            }
+        }
     }
 
     /*
@@ -46,8 +50,9 @@ function Client() {
      *
      */
     this.run = function() {
-        sock = new SockJS('http://' + Config.SERVER_NAME + ':' + Config.PORT + '/space');
-        sock.onmessage = function(e) {
+        //0 is the first connection
+        sockets[0] = new SockJS('http://' + Config.SERVER_NAME + ':' + Config.PORT + '/space');
+        sockets[0].onmessage = function(e) {
         var message = JSON.parse(e.data);
             showMessage("received", ++countMessagesRcv);
             switch (message.type) {
@@ -128,12 +133,27 @@ function Client() {
                         delete ships[id];
                     }
                     break;
+                case "switch":
+                    if (sockets[1] === undefined) {
+                        sockets[1] = new SockJS('http://' + Config.SERVER_NAME + ':' + Config.PORT2 + '/space');
+                        console.log("creating new socket");
+                        
+                        sockets[1].onopen = function() {
+                        // When connection to server is open, ask to join.
+                        sendToServer({type:"existingShipJoins",
+                                      x:myShip.x,
+                                      y:myShip.y,
+                                      dir: myShip.dir});
+                        console.log("send join to server2");
+                        }
+                    }
+                    break;
                 default:
                     console.log("error: undefined command " + message.type);
             }
         };
 
-        sock.onclose = function() {
+        sockets[0].onclose = function() {
             // Connection to server has closed.  Delete everything.
             for (var i in ships) {
                 delete ships[i];
@@ -143,108 +163,117 @@ function Client() {
             }
         }
 
-        sock.onopen = function() {
+        sockets[0].onopen = function() {
             // When connection to server is open, ask to join.
             sendToServer({type:"join"});
         }
-        /*
-        sock2 = new SockJS('http://' + Config.SERVER_NAME + ':' + Config.PORT2 + '/space');
-        sock2.onmessage = function(e) {
-        var message = JSON.parse(e.data);
-            console.log(e.data);
-            showMessage("received", ++countMessagesRcv);
-            switch (message.type) {
-                case "join": 
-                    // Server agrees to let this client join.
-                    myId = message.id;
-                    ships[myId] = new Ship();
-                    myShip = ships[myId];
-                    myShip.init(message.x, message.y, message.dir);
 
-                    // Start the game loop
-                    setInterval(function() {gameLoop();}, 1000/Config.FRAME_RATE); 
-                    break;
-                case "new":
-                    // Add a ship to the battlefield.
-                    var id = message.id;
-                    ships[id] = new Ship();
-                    ships[id].init(message.x, message.y, message.dir);
-                    break;
-                case "turn":
-                    // Ship id just turned to dir at position (x,y)
-                    var id = message.id;
-                    if (ships[id] === undefined) {
-                        console.log("turn error: undefined ship " + id);
-                    } else {
-                        // We do zero-order convergence for simplicity here.
-                        ships[id].jumpTo(message.x, message.y);
-                        ships[id].turn(message.dir);
-                    }
-                    break;
-                case "fire":
-                    // Ship sid just fired a rocket rid in dir 
-                    // at position (x,y)
-                    var sid = message.ship;
-                    var rid = message.rocket;
-                    if (ships[sid] === undefined) {
-                        console.log("fire error: undefined ship " + sid);
-                    } 
-                    var r = new Rocket();
-                    r.init(message.x, message.y, message.dir, sid);
-                    rockets[rid] = r;
-                    break;
-                case "hit":
-                    // Rocket rid just hit Ship rid
-                    var sid = message.ship;
-                    var rid = message.rocket;
-                    if (ships[sid] === undefined) {
-                        console.log("hit error: undefined ship " + sid);
-                    } else {
-                        // If this client has been hit, increase hit count
-                        ships[sid].hit();
-                        if (sid == myId) {
-                            showMessage("hitCount", myShip.hitCount);
+        if (sockets[1] != undefined) {
+            console.log("socket[1]");
+            sockets[1].onmessage = function(e) {
+            var message = JSON.parse(e.data);
+                console.log(e.data);
+                showMessage("received", ++countMessagesRcv);
+                switch (message.type) {
+                    case "join": 
+                        // Server agrees to let this client join.
+                        myId = message.id;
+                        ships[myId] = new Ship();
+                        myShip = ships[myId];
+                        myShip.init(message.x, message.y, message.dir);
+
+                        // Start the game loop
+                        setInterval(function() {gameLoop();}, 1000/Config.FRAME_RATE); 
+                        break;
+                    case "new":
+                        // Add a ship to the battlefield.
+                        var id = message.id;
+                        ships[id] = new Ship();
+                        ships[id].init(message.x, message.y, message.dir);
+                        break;
+                    case "turn":
+                        // Ship id just turned to dir at position (x,y)
+                        var id = message.id;
+                        if (ships[id] === undefined) {
+                            console.log("turn error: undefined ship " + id);
+                        } else {
+                            // We do zero-order convergence for simplicity here.
+                            ships[id].jumpTo(message.x, message.y);
+                            ships[id].turn(message.dir);
                         }
-                    }
-                    if (rockets[rid] === undefined) {
-                        console.log("hit error: undefined rocket " + rid);
-                    } else {
-                        // If it is this client's rocket that hits, increase kill count
-                        ships[rockets[rid].from].kill();
-                        if (rockets[rid].from == myId) {
-                            showMessage("killCount", myShip.killCount);
+                        break;
+                    case "fire":
+                        // Ship sid just fired a rocket rid in dir 
+                        // at position (x,y)
+                        var sid = message.ship;
+                        var rid = message.rocket;
+                        if (ships[sid] === undefined) {
+                            console.log("fire error: undefined ship " + sid);
+                        } 
+                        var r = new Rocket();
+                        r.init(message.x, message.y, message.dir, sid);
+                        rockets[rid] = r;
+                        break;
+                    case "hit":
+                        // Rocket rid just hit Ship rid
+                        var sid = message.ship;
+                        var rid = message.rocket;
+                        if (ships[sid] === undefined) {
+                            console.log("hit error: undefined ship " + sid);
+                        } else {
+                            // If this client has been hit, increase hit count
+                            ships[sid].hit();
+                            if (sid == myId) {
+                                showMessage("hitCount", myShip.hitCount);
+                            }
                         }
-                        // Remove the rocket
-                        delete rockets[rid];
-                    }
-                    break;
-                case "delete":
-                    // Ship ID has quit. Remove the ship from the battle.
-                    var id = message.id;
-                    if (ships[id] === undefined) {
-                        console.log("delete error: undefined ship " + id);
-                    } else {
-                        delete ships[id];
-                    }
-                    break;
-                default:
-                    console.log("error: undefined command " + message.type);
+                        if (rockets[rid] === undefined) {
+                            console.log("hit error: undefined rocket " + rid);
+                        } else {
+                            // If it is this client's rocket that hits, increase kill count
+                            ships[rockets[rid].from].kill();
+                            if (rockets[rid].from == myId) {
+                                showMessage("killCount", myShip.killCount);
+                            }
+                            // Remove the rocket
+                            delete rockets[rid];
+                        }
+                        break;
+                    case "delete":
+                        // Ship ID has quit. Remove the ship from the battle.
+                        var id = message.id;
+                        if (ships[id] === undefined) {
+                            console.log("delete error: undefined ship " + id);
+                        } else {
+                            delete ships[id];
+                        }
+                        break;
+                    case "disconnect":
+                        sockets[1].close();
+                        break;
+                    default:
+                        console.log("error: undefined command " + message.type);
+                }
+            };
+
+            sockets[1].onopen = function() {
+                // When connection to server is open, ask to join.
+                sendToServer({type:"join"});
+                console.log("send join to server2");
             }
-        };
-
-        sock2.onopen = function() {
-            // When connection to server is open, ask to join.
-            sendToServer({type:"join"});
+            sockets[1].onclose = function() {
+                // Connection to server has closed.  Delete everything.
+                for (var i in ships) {
+                    delete ships[i];
+                }
+                for (var i in rockets) {
+                    delete rockets[i];
+                }
+            }
+        } else {
+            console.log("sockets[1] is undefined");
         }
-        sock2.onclose = function() {
-            // Connection to server has closed.  Delete everything.
-            for (var i in ships) {
-                delete ships[i];
-            }
-            for (var i in rockets) {
-                delete rockets[i];
-            }
-        }*/
+        
 
         // Setup the keyboard input.  User controls the game with
         // arrow keys and space bar.
