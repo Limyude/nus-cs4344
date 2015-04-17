@@ -38,6 +38,7 @@ function MMOServer() {
     var rocketsCurrentCellRC = {}; // Associative array of the cell (r, c) which the rocket is currently in, indexed by the rocketId
     var shipsCurrentSubscribedCellsRC = {}; // Associative array of the cells (r, c) which the ship is currently subscribed to, indexed by the playerId   
     var rocketsSeenByShips = {}; // Associative array of the rockets seen by ships, indexed by playerId
+    var cellsShipIds = {}; // Associative array of the ships that are in a cell (r, c)
     
     // private methods for Area-of-Interest management
     
@@ -88,6 +89,13 @@ function MMOServer() {
       return true;
     }
     
+    var getCellId = function(r, c) {
+      if (!checkCellsInitialized("getCellId()")) {
+        return;
+      }
+      return r * cells[0].length + c;
+    }
+    
     /*
      * Private method: locateCellRC(x, y)
      *
@@ -117,6 +125,12 @@ function MMOServer() {
       }
       
       return cells[r][c];
+    }
+    
+    var getShipIdsInCell = function(r, c) {
+      var cellId = getCellId(r, c);
+      cellsShipIds[cellId] = cellsShipIds[cellId] || {};
+      return cellsShipIds[cellId];
     }
     
     /*
@@ -256,6 +270,10 @@ function MMOServer() {
     var insertShipIntoCell = function(shipId, r, c) {   
       subscribeShip(shipId);
       shipsCurrentCellRC[shipId] = {r: r, c: c};
+      
+      var cellId = getCellId(r, c);
+      cellsShipIds[cellId] = cellsShipIds[cellId] || {};
+      cellsShipIds[cellId][shipId] = shipId;
       //console.log("Ship went into new cell (" + r + "," + c + ")");
     }
     
@@ -277,10 +295,14 @@ function MMOServer() {
      */
     var removeShipFromCell = function(shipId) {
       var cell = getShipCell(shipId);
-      unsubscribeShip(shipId);
-      delete shipsCurrentCellRC[shipId];
       var r = Math.floor(cell.y/CELL_HEIGHT);
       var c = Math.floor(cell.x/CELL_WIDTH);
+      
+      unsubscribeShip(shipId);
+      var cellId = getCellId(r, c);
+      cellsShipIds[cellId] = cellsShipIds[cellId] || {};
+      delete cellsShipIds[cellId][shipId];
+      delete shipsCurrentCellRC[shipId];
       //console.log("Ship removed from cell (" + r + "," + c + ")");
     }
     
@@ -566,15 +588,16 @@ function MMOServer() {
                 // For each ship, checks if this rocket has hit the ship
                 // A rocket cannot hit its own ship.
                 for (k in nearbyCells) {
-                  var subscribedShips = nearbyCells[k].getShips();
-                  for (j in subscribedShips) {
+                  var rocketCell = nearbyCells[k];
+                  var rocketCellRC = {r: Math.floor(rocketCell.y/CELL_HEIGHT), c: Math.floor(rocketCell.x/CELL_WIDTH)};
+                  var shipsInside = getShipIdsInCell(rocketCellRC.r, rocketCellRC.c);
+                  for (j in shipsInside) {
                       if (rockets[i] != undefined && rockets[i].from != j) {
                           //console.log("Checking collision with ship " + j);
-                          if (rockets[i].hasHit(ships[subscribedShips[j]])) {
+                          if (ships[j] && rockets[i].hasHit(ships[j])) {
                               // tell only the shooter and the shot
                               var shooter = rockets[i].from;
-                              unicast(sockets[shooter], {type:"hit", rocket: i, ship: j});
-                              unicast(sockets[j], {type:"hit", rocket: i, ship: j});
+                              broadcast({type:"hit", rocket: i, ship: j});
                               delete rockets[i];
                               //console.log("Rocket from " + shooter + " hit " + j);
                           }
