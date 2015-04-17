@@ -22,27 +22,6 @@ function Client() {
     var shipLastUpdates = {}; // last update timestamp
     var TIME_LIMIT_BEFORE_FADE = 5000; // 5 seconds
     
-    
-    // Dynamically define the getTimestamp() function depending on
-    // platform.
-    if (typeof window === "undefined") {
-      var getTimestamp = function() { 
-        var t = process.hrtime(); return t[0]*1e3 + t[1]*1.0/1e6
-      } 
-    } else if (window.performance.now) {
-      var getTimestamp = function() { 
-        return window.performance.now(); 
-      };
-    } else if (window.performance.webkitNow) {
-        var getTimestamp = function() { 
-        return window.performance.webkitNow(); 
-      };
-    } else {
-      var getTimestamp = function() { 
-        return new Date().now(); 
-      };
-    }
-    
     /*
      * private method: sendToServer(msg)
      *
@@ -70,7 +49,7 @@ function Client() {
         sock = new SockJS('http://' + Config.SERVER_NAME + ':' + Config.PORT + '/space');
         sock.onmessage = function(e) {
         var message = JSON.parse(e.data);
-            console.log(e.data);
+            console.log("received-> " + e.data);
             showMessage("received", ++countMessagesRcv);
             switch (message.type) {
                 case "join": 
@@ -95,6 +74,7 @@ function Client() {
                     // Ship id just turned to dir at position (x,y)
                     var id = message.id;
                     shipLastUpdates[id] = getTimestamp();
+                    console.log("turn received: timestamp: " + shipLastUpdates[id]);
                     if (ships[id] === undefined) {
                         console.log("turn error: undefined ship " + id);
                     } else {
