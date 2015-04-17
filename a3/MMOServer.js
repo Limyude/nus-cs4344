@@ -639,11 +639,8 @@ function MMOServer() {
                       if (rockets[i] != undefined && rockets[i].from != j) {
                           //console.log("Checking collision with ship " + j);
                           if (ships[j] && rockets[i].hasHit(ships[j])) {
-                              // tell only the shooter and the shot
-                              var shooter = rockets[i].from;
                               broadcastSelectively(getPlayersWhoHaveSeenRocket(i), {type:"hit", rocket: i, ship: j});
                               delete rockets[i];
-                              //console.log("Rocket from " + shooter + " hit " + j);
                           }
                       } 
                   }
