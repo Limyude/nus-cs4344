@@ -18,6 +18,31 @@ function Client() {
 
     var countMessagesRcv = 0;
     var countMessagesSent = 0;
+    
+    var shipLastUpdates = {}; // last update timestamp
+    var TIME_LIMIT_BEFORE_FADE = 5000; // 5 seconds
+    
+    
+    // Dynamically define the getTimestamp() function depending on
+    // platform.
+    if (typeof window === "undefined") {
+      var getTimestamp = function() { 
+        var t = process.hrtime(); return t[0]*1e3 + t[1]*1.0/1e6
+      } 
+    } else if (window.performance.now) {
+      var getTimestamp = function() { 
+        return window.performance.now(); 
+      };
+    } else if (window.performance.webkitNow) {
+        var getTimestamp = function() { 
+        return window.performance.webkitNow(); 
+      };
+    } else {
+      var getTimestamp = function() { 
+        return new Date().now(); 
+      };
+    }
+    
     /*
      * private method: sendToServer(msg)
      *
@@ -51,6 +76,7 @@ function Client() {
                 case "join": 
                     // Server agrees to let this client join.
                     myId = message.id;
+                    shipLastUpdates[myId] = -9999999; // so that we don't display the ship at first until they come into our AOI and update us
                     ships[myId] = new Ship();
                     myShip = ships[myId];
                     myShip.init(message.x, message.y, message.dir);
@@ -61,12 +87,14 @@ function Client() {
                 case "new":
                     // Add a ship to the battlefield.
                     var id = message.id;
+                    shipLastUpdates[id] = -9999999; // so that we don't display the ship at first until they come into our AOI and update us
                     ships[id] = new Ship();
                     ships[id].init(message.x, message.y, message.dir);
                     break;
                 case "turn":
                     // Ship id just turned to dir at position (x,y)
                     var id = message.id;
+                    shipLastUpdates[id] = getTimestamp();
                     if (ships[id] === undefined) {
                         console.log("turn error: undefined ship " + id);
                     } else {
@@ -88,7 +116,7 @@ function Client() {
                     rockets[rid] = r;
                     break;
                 case "hit":
-                    // Rocket rid just hit Ship rid
+                    // Rocket rid just hit Ship sid
                     var sid = message.ship;
                     var rid = message.rocket;
                     if (ships[sid] === undefined) {
@@ -339,6 +367,10 @@ function Client() {
 
         // Draw the ship
         for (var i in ships) {
+            var curTime = getTimestamp();
+            if (ships[i] !== myShip && (curTime - shipLastUpdates[i] > TIME_LIMIT_BEFORE_FADE)) {
+              continue;
+            }
             if (ships[i] === myShip) {
                 ships[i].draw(context, true);
             } else {
@@ -458,6 +490,6 @@ function Client() {
 }
 
 var c = new Client();
-c.run()
+c.run();
 
 // vim:ts=4:sw=4:expandtab
