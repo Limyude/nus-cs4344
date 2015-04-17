@@ -531,7 +531,8 @@ function MMOServer() {
      */
     var gameLoop = function () {
         var i;
-        var  j;
+        var j;
+        var k;
         for (i in ships) {
             ships[i].moveOneStep();
             // AOI: update ship cell if it goes to a new cell
@@ -549,38 +550,23 @@ function MMOServer() {
                 updateRocketCell(i, rockets[i].x, rockets[i].y);
                 // AOI: check only the ships which are nearby!
                 var nearbyCells = getCellsForCircleAOI(rockets[i].x, rockets[i].y, AOI_RADIUS_ROCKET);
-                var nearbyShips = {};
-                for (var k in nearbyCells) {
-                  var cell = nearbyCells[k];
-                  var subscribedShips = cell.getShips();
-                  for (var j in subscribedShips) {
-                    var s = ships[subscribedShips[j]];
-                    if (typeof s === 'undefined') {
-                      continue;
-                    }
-                    var dx = s.x - rockets[i].x;
-                    var dy = s.y - rockets[i].y;
-                    //console.log("s.x = " + s.x + " s.y = " + s.y);
-                    //console.log(Math.sqrt(dx*dx + dy*dy));
-                    if (Math.sqrt(dx*dx + dy*dy) < AOI_RADIUS_ROCKET) {
-                      nearbyShips[j] = s;
-                    }
-                  }
-                }
                 // For each ship, checks if this rocket has hit the ship
                 // A rocket cannot hit its own ship.
-                for (j in nearbyShips) {
-                    if (rockets[i] != undefined && rockets[i].from != j) {
-                        //console.log("Checking collision with ship " + j);
-                        if (rockets[i].hasHit(nearbyShips[j])) {
-                            // tell only the shooter and the shot
-                            var shooter = rockets[i].from;
-                            unicast(sockets[shooter], {type:"hit", rocket: i, ship: j});
-                            unicast(sockets[j], {type:"hit", rocket: i, ship: j});
-                            delete rockets[i];
-                            //console.log("Rocket from " + shooter + " hit " + j);
-                        }
-                    } 
+                for (k in nearbyCells) {
+                  var subscribedShips = nearbyCells[k].getShips();
+                  for (j in subscribedShips) {
+                      if (rockets[i] != undefined && rockets[i].from != j) {
+                          //console.log("Checking collision with ship " + j);
+                          if (rockets[i].hasHit(ships[subscribedShips[j]])) {
+                              // tell only the shooter and the shot
+                              var shooter = rockets[i].from;
+                              unicast(sockets[shooter], {type:"hit", rocket: i, ship: j});
+                              unicast(sockets[j], {type:"hit", rocket: i, ship: j});
+                              delete rockets[i];
+                              //console.log("Rocket from " + shooter + " hit " + j);
+                          }
+                      } 
+                  }
                 }
             }
         }
