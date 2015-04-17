@@ -15,6 +15,9 @@ function Client() {
     var rockets = {};  // associative array of rockets, indexed by rocket ID
     var myShip;        // my ship object  (same as ships[myId])
     var myId;          // My ship ID
+    
+    var AOI_WIDTH = 100;
+    var AOI_LENGTH = 300;
 
     var countMessagesRcv = 0;
     var countMessagesSent = 0;
@@ -393,59 +396,59 @@ function Client() {
         context.beginPath();
 
         //right vertical
-        context.moveTo(myShip.x + 50, myShip.y - 250);
-        context.lineTo(myShip.x + 50, myShip.y + 250);
+        context.moveTo(myShip.x + AOI_WIDTH/2, myShip.y - AOI_LENGTH/2);
+        context.lineTo(myShip.x + AOI_WIDTH/2, myShip.y + AOI_LENGTH/2);
 
-        if (myShip.y - 250 < 0) {
-            context.moveTo(myShip.x + 50, Config.HEIGHT);
-            context.lineTo(myShip.x + 50, Config.HEIGHT + myShip.y - 250);
+        if (myShip.y - AOI_LENGTH/2 < 0) {
+            context.moveTo(myShip.x + AOI_WIDTH/2, Config.HEIGHT);
+            context.lineTo(myShip.x + AOI_WIDTH/2, Config.HEIGHT + myShip.y - AOI_LENGTH/2);
         }
 
-        if (myShip.y + 250 > Config.HEIGHT) {
-            context.moveTo(myShip.x + 50, 0);
-            context.lineTo(myShip.x + 50, myShip.y + 250 - Config.HEIGHT);
+        if (myShip.y + AOI_LENGTH/2 > Config.HEIGHT) {
+            context.moveTo(myShip.x + AOI_WIDTH/2, 0);
+            context.lineTo(myShip.x + AOI_WIDTH/2, myShip.y + AOI_LENGTH/2 - Config.HEIGHT);
         }
 
         //left vertical
-        context.moveTo(myShip.x - 50, myShip.y - 250);
-        context.lineTo(myShip.x - 50, myShip.y + 250);
+        context.moveTo(myShip.x - AOI_WIDTH/2, myShip.y - AOI_LENGTH/2);
+        context.lineTo(myShip.x - AOI_WIDTH/2, myShip.y + AOI_LENGTH/2);
 
-        if (myShip.y - 250 < 0) {
-            context.moveTo(myShip.x - 50, Config.HEIGHT);
-            context.lineTo(myShip.x - 50, Config.HEIGHT + myShip.y - 250);
+        if (myShip.y - AOI_LENGTH/2 < 0) {
+            context.moveTo(myShip.x - AOI_WIDTH/2, Config.HEIGHT);
+            context.lineTo(myShip.x - AOI_WIDTH/2, Config.HEIGHT + myShip.y - AOI_LENGTH/2);
         }
 
-        if (myShip.y + 250 > Config.HEIGHT) {
-            context.moveTo(myShip.x - 50, 0);
-            context.lineTo(myShip.x - 50, myShip.y + 250 - Config.HEIGHT);
+        if (myShip.y + AOI_LENGTH/2 > Config.HEIGHT) {
+            context.moveTo(myShip.x - AOI_WIDTH/2, 0);
+            context.lineTo(myShip.x - AOI_WIDTH/2, myShip.y + AOI_LENGTH/2 - Config.HEIGHT);
         }
 
         //top horizontal
-        context.moveTo(myShip.x - 250, myShip.y + 50);
-        context.lineTo(myShip.x + 250, myShip.y + 50);
+        context.moveTo(myShip.x - AOI_LENGTH/2, myShip.y + AOI_WIDTH/2);
+        context.lineTo(myShip.x + AOI_LENGTH/2, myShip.y + AOI_WIDTH/2);
 
-        if (myShip.x - 250 < 0) {
-            context.moveTo(Config.WIDTH, myShip.y + 50);
-            context.lineTo(Config.WIDTH + myShip.x - 250, myShip.y + 50);
+        if (myShip.x - AOI_LENGTH/2 < 0) {
+            context.moveTo(Config.WIDTH, myShip.y + AOI_WIDTH/2);
+            context.lineTo(Config.WIDTH + myShip.x - AOI_LENGTH/2, myShip.y + AOI_WIDTH/2);
         }
 
-        if (myShip.x + 250 > Config.WIDTH) {
-            context.moveTo(0, myShip.y + 50);
-            context.lineTo(myShip.x + 250 - Config.WIDTH, myShip.y + 50);
+        if (myShip.x + AOI_LENGTH/2 > Config.WIDTH) {
+            context.moveTo(0, myShip.y + AOI_WIDTH/2);
+            context.lineTo(myShip.x + AOI_LENGTH/2 - Config.WIDTH, myShip.y + AOI_WIDTH/2);
         }
 
         //btm horizonal
-        context.moveTo(myShip.x - 250, myShip.y - 50);
-        context.lineTo(myShip.x + 250, myShip.y - 50);
+        context.moveTo(myShip.x - AOI_LENGTH/2, myShip.y - AOI_WIDTH/2);
+        context.lineTo(myShip.x + AOI_LENGTH/2, myShip.y - AOI_WIDTH/2);
         
-        if (myShip.x - 250 < 0) {
-            context.moveTo(Config.WIDTH, myShip.y - 50);
-            context.lineTo(Config.WIDTH + myShip.x - 250, myShip.y - 50);
+        if (myShip.x - AOI_LENGTH/2 < 0) {
+            context.moveTo(Config.WIDTH, myShip.y - AOI_WIDTH/2);
+            context.lineTo(Config.WIDTH + myShip.x - AOI_LENGTH/2, myShip.y - AOI_WIDTH/2);
         }
 
-        if (myShip.x + 250 > Config.WIDTH) {
-            context.moveTo(0, myShip.y - 50);
-            context.lineTo(myShip.x + 250 - Config.WIDTH, myShip.y - 50);
+        if (myShip.x + AOI_LENGTH/2 > Config.WIDTH) {
+            context.moveTo(0, myShip.y - AOI_WIDTH/2);
+            context.lineTo(myShip.x + AOI_LENGTH/2 - Config.WIDTH, myShip.y - AOI_WIDTH/2);
         }
 
 

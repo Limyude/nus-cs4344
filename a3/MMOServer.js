@@ -26,7 +26,7 @@ function MMOServer() {
     
     // private constants for Area-of-Interest management
     var AOI_WIDTH_SHIP = 100;   // The AOI width of the ships (AOI will be a cross)
-    var AOI_LENGTH_SHIP = 500;  // The AOI length of the ships (AOI will not be an infinite cross)
+    var AOI_LENGTH_SHIP = 300;  // The AOI length of the ships (AOI will not be an infinite cross)
     var AOI_RADIUS_ROCKET = 12;  // The AOI radius of a rocket to check for collision
     var CELL_WIDTH = AOI_WIDTH_SHIP/2;
     var CELL_HEIGHT = CELL_WIDTH;
