@@ -49,7 +49,6 @@ function Client() {
         sock = new SockJS('http://' + Config.SERVER_NAME + ':' + Config.PORT + '/space');
         sock.onmessage = function(e) {
         var message = JSON.parse(e.data);
-            console.log("received-> " + e.data);
             showMessage("received", ++countMessagesRcv);
             switch (message.type) {
                 case "join": 
