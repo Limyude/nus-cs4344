@@ -40,6 +40,7 @@ function MMOServer() {
     var rocketsSeenByShips = {}; // Associative array of the rockets seen by ships, indexed by playerId
     var shipsThatSeenRocket = {}; // Associative array of the ships which have seen a rocket, indexed by rocketId
     var cellsShipIds = {}; // Associative array of the ships that are in a cell (r, c)
+    var nearbyCellsOfRocket = {}; // Associative array of the cells that are nearby a rocket, indexed by rocketId
     
     // private methods for Area-of-Interest management
     
@@ -497,6 +498,34 @@ function MMOServer() {
             y: rocket.y,
             dir: rocket.dir
         });
+        
+        // AOI: Calculate the new nearby cells after entering a new cell
+        var nearbyCells = getCellsForCircleAOI(x, y, AOI_RADIUS_ROCKET);
+        nearbyCellsOfRocket[rocketId] = nearbyCells;
+      }
+      
+      // AOI: Also calculate the new nearby cells if moved close to a border
+      var rocket = rockets[rocketId];
+      if (rocket.dir == "up") {
+        if (rocket.y - Math.floor(rocket.y/CELL_HEIGHT) * CELL_HEIGHT < AOI_RADIUS_ROCKET) {
+          var nearbyCells = getCellsForCircleAOI(rocket.x, rocket.y, AOI_RADIUS_ROCKET);
+          nearbyCellsOfRocket[rocketId] = nearbyCells;
+        }
+      } else if (rocket.dir == "down") {
+        if (Math.ceil(rocket.y/CELL_HEIGHT) * CELL_HEIGHT - rocket.y < AOI_RADIUS_ROCKET) {
+          var nearbyCells = getCellsForCircleAOI(rocket.x, rocket.y, AOI_RADIUS_ROCKET);
+          nearbyCellsOfRocket[rocketId] = nearbyCells;
+        }
+      } else if (rocket.dir == "right") {
+        if (Math.ceil(rocket.x/CELL_WIDTH) * CELL_WIDTH - rocket.x < AOI_RADIUS_ROCKET) {
+          var nearbyCells = getCellsForCircleAOI(rocket.x, rocket.y, AOI_RADIUS_ROCKET);
+          nearbyCellsOfRocket[rocketId] = nearbyCells;
+        }
+      } else if (rocket.dir == "left"){
+        if (rocket.x - Math.floor(rocket.x/CELL_WIDTH) * CELL_WIDTH < AOI_RADIUS_ROCKET) {
+          var nearbyCells = getCellsForCircleAOI(rocket.x, rocket.y, AOI_RADIUS_ROCKET);
+          nearbyCellsOfRocket[rocketId] = nearbyCells;
+        }
       }
     }
     
@@ -599,7 +628,7 @@ function MMOServer() {
                 // AOI: update rocket cell if it goes to a new cell
                 updateRocketCell(i, rockets[i].x, rockets[i].y);
                 // AOI: check only the ships which are nearby!
-                var nearbyCells = getCellsForCircleAOI(rockets[i].x, rockets[i].y, AOI_RADIUS_ROCKET);
+                var nearbyCells = nearbyCellsOfRocket[i];
                 // For each ship, checks if this rocket has hit the ship
                 // A rocket cannot hit its own ship.
                 for (k in nearbyCells) {
