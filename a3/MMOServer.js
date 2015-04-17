@@ -234,10 +234,10 @@ function MMOServer() {
      * Unsubscribes the ship from all the cells it is currently subscribed to
      */
     var unsubscribeShip = function(shipId) {
-      var subscribedCells = shipsCurrentSubscribedCellsRC[shipId];
+      var subscribedCellsRC = shipsCurrentSubscribedCellsRC[shipId];
       var i;
-      for (i in subscribedCells) {
-        var cellRC = subscribedCells[i];
+      for (i in subscribedCellsRC) {
+        var cellRC = subscribedCellsRC[i];
         var cell = getCell(cellRC.r, cellRC.c);
         cell.unsubscribeShip(shipId);
         var r = Math.floor(cell.y/CELL_HEIGHT);
@@ -285,6 +285,15 @@ function MMOServer() {
     }
     
     /*
+     * Private method: removeRocketFromCell(rocketId)
+     *
+     * Removes the rocket from the cell
+     */
+    var removeRocketFromCell = function(rocketId) {
+      delete rocketsCurrentCellRC[rocketId];
+    }
+    
+    /*
      * Private method: locateCellRCAndInsertShip(shipId, x, y)
      *
      * Convenience method that combines locateCellRC(x, y) and insertShipIntoCell(shipId, r, c) into one.
@@ -301,7 +310,10 @@ function MMOServer() {
      */
     var findCellAndInsertRocket = function(rocketId, x, y) {
       var cellRC = locateCellRC(x, y);
-      insertRocketIntoCell(rocketId, cellRC.r, cellRC.c);
+      var r = cellRC.r;
+      var c = cellRC.c;
+      insertRocketIntoCell(rocketId, r, c);
+      //console.log("Rocket inserted into cell (" + r + "," + c + ")");
     }
     
     /*
@@ -425,6 +437,7 @@ function MMOServer() {
      */
     var updateRocketCell = function(rocketId, x, y) {
       if (checkRocketChangedCell(rocketId, x, y)) {
+        removeRocketFromCell(rocketId);
         findCellAndInsertRocket(rocketId, x, y);
         // AOI: Send the rocket fire event only to people subscribed to the cell AND who have not seen the rocket already
         var cell = getRocketCell(rocketId);
@@ -689,8 +702,6 @@ function MMOServer() {
                         case "turn":
                             // A player has turned.  Tell everyone else.
                             var pid = players[conn.id].pid;
-                            ships[pid].jumpTo(message.x, message.y);
-                            ships[pid].turn(message.dir);
                             // AOI: Send the turn event only to people subscribed to the cell
                             var cell = getShipCell(pid);
                             var shipsSubscribed = cell.getShips();
@@ -702,6 +713,9 @@ function MMOServer() {
                               y: message.y,
                               dir: message.dir
                             });
+                            
+                            ships[pid].jumpTo(message.x, message.y);
+                            ships[pid].turn(message.dir);
                             
                             break;
 
@@ -717,8 +731,19 @@ function MMOServer() {
                             
                             // AOI: insert the new rocket into its appropriate cell
                             findCellAndInsertRocket(rocketId, message.x, message.y);
-                            // Send to the player
-                            unicast(sockets[pid], {
+                            // Send to the players subscribed to the cell
+                            var rocketCell = getRocketCell(rocketId);
+                            var subscribedShips = rocketCell.getShips();
+                            for (var i in subscribedShips) {
+                              rocketsSeenByShips[i] = rocketsSeenByShips[i] || {};
+                              var rocketsSeen = rocketsSeenByShips[i];
+                              if ( !rocketsSeen[rocketId]) {
+                                rocketsSeen[rocketId] = rocketId;
+                              } else {
+                                delete subscribedShips[i];
+                              }
+                            }
+                            broadcastSelectively(subscribedShips, {
                                 type:"fire",
                                 ship: r.from,
                                 rocket: rocketId,

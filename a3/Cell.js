@@ -77,12 +77,20 @@ function Cell()
   
   // Returns an associative array containing all ships subscribed to the cell
   this.getShips = function() {
-    return ships;
+    var clone = {};
+    for (var i in ships) {
+      clone[i] = ships[i];
+    }
+    return clone;
   }
   
   // Returns an associative array containing all rockets subscribed to the cell
   this.getRockets = function() {
-    return rockets;
+    var clone = {};
+    for (var i in rockets) {
+      clone[i] = rockets[i];
+    }
+    return clone;
   }
   
   // Checks if a point (x,y) is in the cell
