@@ -426,7 +426,7 @@ function MMOServer() {
     var updateRocketCell = function(rocketId, x, y) {
       if (checkRocketChangedCell(rocketId, x, y)) {
         findCellAndInsertRocket(rocketId, x, y);
-        // AOI: Send the turn event only to people subscribed to the cell AND who have not seen the rocket already
+        // AOI: Send the rocket fire event only to people subscribed to the cell AND who have not seen the rocket already
         var cell = getRocketCell(rocketId);
         var shipsSubscribed = cell.getShips();
         for (var i in shipsSubscribed) {
