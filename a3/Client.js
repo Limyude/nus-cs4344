@@ -10,7 +10,6 @@
 
 function Client() {
     var sock;          // socket to server
-    var sock2;
     var ships = {};    // associative array of ships, indexed by ship ID
     var rockets = {};  // associative array of rockets, indexed by rocket ID
     var myShip;        // my ship object  (same as ships[myId])
@@ -36,7 +35,6 @@ function Client() {
         showMessage("sent", ++countMessagesSent);
         console.log("send-> " + JSON.stringify(msg));
         sock.send(JSON.stringify(msg));
-        //sock2.send(JSON.stringify(msg));
     }
 
     /*
@@ -271,6 +269,7 @@ function Client() {
         }
 
         //commented out for submission purposes.
+        //call this function to view the AOI and cells visually in the game world
         //drawCellsAndAOI(context);
     }
 
